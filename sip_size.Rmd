@@ -57,6 +57,11 @@ sip_mod <- lmer(sip ~ angle_centered * pills_centered * utensil + (1 | ID),
 sip_apa <- papaja::apa_print(sip_mod)
 ```
 
+
+```{r echo=TRUE}
+knitr::kable(summary(sip_mod)[[10]], digits = 3, caption = "All coefficients for mixed effects model table.")
+```
+
 To quantify these trends, we fit a linear mixed effects model. We predicted sip size (in ml) as a function of bed angle (centered), number of pills (centered), and utensil (straw or cup), as well as all two- and three-way interactions of these variables. We included a random intercept for each participant. The model was fit with the `lme4` package in `R` (Bates D, Mächler M, Bolker B, Walker S (2015). “Fitting Linear Mixed-Effects Models Using lme4.” Journal of Statistical Software, 67(1), 1–48. doi: 10.18637/jss.v067.i01.) and computed p-values with the `lmerTest` package. 
 
 Confirming our visual impression, higher angles led to significantly larger sip sizes (`r sip_apa$full_result$angle_centered`). Larger numbers of pills similarly led to larger sip sizes (`r sip_apa$full_result$pills_centered`). The use of a straw led to significantly smaller sip sizes (`r sip_apa$full_result$utensilStraw`). There was a trend towards an interaction of angle and number of pills (`r sip_apa$full_result$angle_centered_pills_centered`), and a significant interaction of number of pills and the use of a straw (`r sip_apa$full_result$pills_centered_utensilStraw`).
