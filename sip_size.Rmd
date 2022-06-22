@@ -1,0 +1,108 @@
+---
+title: "Swallowing Data"
+author: "Mike & Kelly"
+date: "3/7/2022"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(lme4))
+suppressPackageStartupMessages(library(lmerTest))
+set.seed(42)
+knitr::opts_chunk$set(cache.extra = knitr::rand_seed, cache = TRUE, 
+                      message=FALSE, warning=FALSE, error=FALSE, echo = FALSE)
+
+d_raw <- read_csv("data/sip size data-checked.csv", col_types = cols())
+
+d <- d_raw %>%
+  pivot_longer(cols = -ID, names_to = "name", values_to = "value") %>%
+  separate(col = name, into = c("angle", "utensil", "pills", "measure"), 
+           sep = "-") %>%
+  pivot_wider(names_from = "measure", values_from = "value") %>%
+  mutate(pills = as.numeric(pills), 
+         angle = as.numeric(angle), 
+         utensil = ifelse(utensil == "cup", "Cup", "Straw"))
+write_csv(d,"data/tidy_sip_size.csv")
+```
+
+# Results
+
+We first present results from the sip size and difficulty measures separately. Next, we report the relationship between the two measures. 
+
+
+## Sip size 
+
+```{r, fig.cap = "Figure 1. Sip size (ml) plotted by sitting angle. Color shows the number of pills; subplots show the two utensils. Points are jittered slightly in the horizontal direction to avoid overplotting. Lines show best linear fit with 95\\% confidence intervals shaded."}
+ggplot(d, aes(x = angle, y = sip, col = pills, group = as.factor(pills))) + 
+  geom_jitter(width = 2, height = 0, alpha = .5) + 
+  facet_wrap(~utensil) + 
+  geom_smooth(method = "lm", formula = y ~ x) + 
+  xlab("Angle") + 
+  ylab("Sip size (ml)")  + 
+  ggthemes::theme_few() + 
+  viridis::scale_color_viridis(name = "# of Pills") + 
+  theme(legend.position = "bottom")
+```
+Figure 1 shows sip size, plotted by angle, number of pills, and utensil. Descriptively, sip size was overall larger for cups rather than straws, larger for greater numbers of pills, and larger when patients were more upright (greater angle).
+
+```{r echo=TRUE}
+d$angle_centered <- as.numeric(d$angle) - 65
+d$pills_centered <- as.numeric(d$pills) - 1
+sip_mod <- lmer(sip ~ angle_centered * pills_centered * utensil + (1 | ID), 
+     data = d)
+
+sip_apa <- papaja::apa_print(sip_mod)
+```
+
+To quantify these trends, we fit a linear mixed effects model. We predicted sip size (in ml) as a function of bed angle (centered), number of pills (centered), and utensil (straw or cup), as well as all two- and three-way interactions of these variables. We included a random intercept for each participant. The model was fit with the `lme4` package in `R` (Bates D, Mächler M, Bolker B, Walker S (2015). “Fitting Linear Mixed-Effects Models Using lme4.” Journal of Statistical Software, 67(1), 1–48. doi: 10.18637/jss.v067.i01.) and computed p-values with the `lmerTest` package. 
+
+Confirming our visual impression, higher angles led to significantly larger sip sizes (`r sip_apa$full_result$angle_centered`). Larger numbers of pills similarly led to larger sip sizes (`r sip_apa$full_result$pills_centered`). The use of a straw led to significantly smaller sip sizes (`r sip_apa$full_result$utensilStraw`). There was a trend towards an interaction of angle and number of pills (`r sip_apa$full_result$angle_centered_pills_centered`), and a significant interaction of number of pills and the use of a straw (`r sip_apa$full_result$pills_centered_utensilStraw`).
+
+## Rating data
+
+```{r, fig.cap = "Figure 2. Rating data plotted by sitting angle. Plotting conventions are as in Figure 1."}
+ggplot(d, aes(x = angle, y = rating, 
+              col = pills, group = factor(pills))) + 
+  geom_jitter(width = 1, height = .2, alpha = .5) + 
+  facet_wrap(~utensil) + 
+  geom_smooth(method = "lm", formula = y ~ x) + 
+  xlab("Angle") + 
+  ylab("Difficulty (0-5)") +
+  ggthemes::theme_few() + 
+  viridis::scale_color_viridis(name = "# of Pills") + 
+  theme(legend.position = "bottom")
+```
+
+```{r echo=TRUE}
+likert_mod <- lmer(rating ~ angle_centered * pills_centered * utensil + (1 | ID), 
+     data = d)
+
+rating_apa <- papaja::apa_print(likert_mod)
+```
+
+Figure 2 shows the rating of difficulty across conditions. Swallowing more pills was rated as more difficult, and difficulty decreased with angle. Overall, swallowing the pills appeared to be more difficult in the straw condition. 
+
+To quantify these trends we fit an identical model to the above, except this time predicting likert ratings rather than sip sizes. Higher angles led to significantly lower difficulty ratings (`r rating_apa$full_result$angle_centered`). Larger numbers of pills  led to significantly higher difficulty ratings (`r rating_apa$full_result$pills_centered`). The use of a straw led to significantly lower difficulties overall (`r rating_apa$full_result$utensilStraw`), but there was a significant positive interaction between number of pills and the use of a straw (`r rating_apa$full_result$pills_centered_utensilStraw`), suggesting that swallowing larger numbers of pills was substantially harder with a straw (across angles).
+
+```{r echo=TRUE}
+knitr::kable(summary(likert_mod)[[10]], digits = 3, caption = "All coefficients for mixed effects model table.")
+```
+
+# Correlational analysis
+
+
+```{r}
+ggplot(d, aes(x = sip, y = rating, col = pills, group = as.factor(pills))) + 
+  geom_point(alpha = .5) + 
+  geom_smooth(method = "lm") + 
+  facet_grid(angle~utensil) + 
+  xlab("Sip size (ml)") + 
+  ylab("Difficulty (0-5)") +
+  ggthemes::theme_few() + 
+  viridis::scale_color_viridis(name = "# of Pills") + 
+  theme(legend.position = "bottom")
+```
+
